@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Profanity Muter</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      width: 220px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-size: 13px;
+      color: #1a1a1a;
+      background: #fff;
+    }
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 14px 10px;
+      border-bottom: 1px solid #e5e5e5;
+    }
+    header h1 {
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+    }
+    .toggle-wrap {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    /* Toggle switch */
+    .switch { position: relative; display: inline-block; width: 36px; height: 20px; }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .slider {
+      position: absolute; inset: 0;
+      background: #ccc; border-radius: 20px;
+      transition: background 0.2s;
+      cursor: pointer;
+    }
+    .slider::before {
+      content: "";
+      position: absolute;
+      width: 14px; height: 14px;
+      left: 3px; bottom: 3px;
+      background: #fff;
+      border-radius: 50%;
+      transition: transform 0.2s;
+    }
+    input:checked + .slider { background: #e53e3e; }
+    input:checked + .slider::before { transform: translateX(16px); }
+
+    .status {
+      padding: 10px 14px;
+      font-size: 12px;
+      color: #555;
+      border-bottom: 1px solid #e5e5e5;
+      min-height: 36px;
+    }
+    .status.active { color: #c53030; font-weight: 500; }
+    .status.inactive { color: #888; }
+
+    footer {
+      padding: 8px 14px;
+      font-size: 11px;
+      color: #aaa;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Profanity Muter</h1>
+    <label class="switch" title="Enable / Disable">
+      <input type="checkbox" id="toggle" />
+      <span class="slider"></span>
+    </label>
+  </header>
+  <div class="status inactive" id="status">Loading…</div>
+  <footer>YouTube auto-captions</footer>
+  <script src="popup.js"></script>
+</body>
+</html>
