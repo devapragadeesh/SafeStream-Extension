@@ -1,0 +1,59 @@
+<svg width="1200" height="300" viewBox="0 0 1200 300" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1a0000"/>
+      <stop offset="55%" stop-color="#3d0a0a"/>
+      <stop offset="100%" stop-color="#c4302b"/>
+    </linearGradient>
+    <linearGradient id="shieldGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#e8e8e8"/>
+    </linearGradient>
+    <filter id="soft" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="4" stdDeviation="8" flood-color="#000000" flood-opacity="0.35"/>
+    </filter>
+  </defs>
+
+  <rect width="1200" height="300" fill="url(#bg)"/>
+
+  <!-- subtle waveform decoration -->
+  <g opacity="0.12" stroke="#ffffff" stroke-width="3" fill="none">
+    <path d="M0,230 Q60,190 120,230 T240,230 T360,230 T480,230 T600,230 T720,230 T840,230 T960,230 T1080,230 T1200,230"/>
+    <path d="M0,260 Q60,235 120,260 T240,260 T360,260 T480,260 T600,260 T720,260 T840,260 T960,260 T1080,260 T1200,260"/>
+  </g>
+
+  <!-- shield + mute icon -->
+  <g transform="translate(90,70)" filter="url(#soft)">
+    <path d="M80,0 L152,26 V78 C152,124 122,158 80,172 C38,158 8,124 8,78 V26 Z"
+          fill="url(#shieldGrad)" stroke="#c4302b" stroke-width="4"/>
+    <!-- speaker body -->
+    <g transform="translate(46,58)">
+      <path d="M0,24 H14 L34,6 V78 L14,60 H0 Z" fill="#c4302b"/>
+      <!-- muted slash -->
+      <line x1="46" y1="14" x2="86" y2="70" stroke="#c4302b" stroke-width="10" stroke-linecap="round"/>
+      <line x1="86" y1="14" x2="46" y2="70" stroke="#c4302b" stroke-width="10" stroke-linecap="round"/>
+    </g>
+  </g>
+
+  <!-- wordmark -->
+  <g transform="translate(280,108)">
+    <text x="0" y="0" font-family="Helvetica, Arial, sans-serif" font-size="72" font-weight="700" fill="#ffffff">SafeStream</text>
+    <text x="4" y="46" font-family="Helvetica, Arial, sans-serif" font-size="26" font-weight="400" fill="#f2c6c4">Real-time profanity muting for YouTube</text>
+  </g>
+
+  <!-- badges row -->
+  <g transform="translate(284,190)" font-family="Helvetica, Arial, sans-serif" font-size="18" fill="#ffffff">
+    <g>
+      <rect x="0" y="0" width="150" height="34" rx="17" fill="#ffffff" opacity="0.12"/>
+      <text x="18" y="23" fill="#ffffff">Manifest V3</text>
+    </g>
+    <g transform="translate(164,0)">
+      <rect x="0" y="0" width="190" height="34" rx="17" fill="#ffffff" opacity="0.12"/>
+      <text x="18" y="23" fill="#ffffff">Zero dependencies</text>
+    </g>
+    <g transform="translate(368,0)">
+      <rect x="0" y="0" width="150" height="34" rx="17" fill="#ffffff" opacity="0.12"/>
+      <text x="18" y="23" fill="#ffffff">Runs locally</text>
+    </g>
+  </g>
+</svg>
