@@ -1,6 +1,4 @@
-chrome.action.onClicked.addListener(async (tab) => {
-    if (!tab.id || !tab.url || !tab.url.includes("youtube.com/watch")) {
-        return;
-    }
-    await chrome.tabs.sendMessage(tab.id, { type: "toggle-url-overlay" });
-});
+// No background logic needed currently — the popup (action.default_popup)
+// handles all user interaction, and the content script manages muting
+// entirely on its own. Kept as an empty service worker since manifest.json
+// declares one.

@@ -43,39 +43,46 @@ async function fetchCaptionsViaInnerTube(videoId, apiKey) {
 
     if (!track) return { ok: false, error: 'No English track', xml: '' };
 
-    const xmlUrl = track.baseUrl.replace(/[&?]fmt=srv3/g, '');
-    console.log('[ProfanityMuter] XML URL:', xmlUrl.slice(0, 120) + '...');
-    console.log('[ProfanityMuter] URL has exp=xpe:', xmlUrl.includes('exp=xpe'));
+    const source = track.kind === 'asr' ? 'auto-generated' : 'manual';
 
+    // Prefer json3: it carries per-word tOffsetMs timing (and keeps a censored
+    // "[ __ ]" token whole), which the segment-level XML format lacks. XML forces
+    // linear word interpolation across a whole caption line, drifting a word's
+    // estimated time by up to ~2s inside long segments — the cause of late mutes.
+    const base = track.baseUrl
+        .replace(/([&?])fmt=[^&]*/g, '$1')   // drop any existing fmt=
+        .replace(/[?&]+$/g, '');             // tidy a dangling ? or &
+    const json3Url = base + (base.includes('?') ? '&' : '?') + 'fmt=json3';
+
+    try {
+        const jsonRes = await fetch(json3Url);
+        console.log('[ProfanityMuter] json3 status:', jsonRes.status);
+        if (jsonRes.ok) {
+            const text = await jsonRes.text();
+            // Only accept json3 if it actually parses with non-empty events;
+            // YouTube sometimes returns HTTP 200 with an empty body / no events,
+            // which would silently mute nothing. Otherwise fall through to XML.
+            let events = null;
+            try { events = JSON.parse(text)?.events; } catch (_) {}
+            if (events?.length) {
+                console.log('[ProfanityMuter] json3 length:', text.length, 'events:', events.length);
+                return { ok: true, xml: text, isJson: true, source };
+            }
+            console.log('[ProfanityMuter] json3 empty/invalid — falling back to XML');
+        }
+    } catch (e) {
+        console.log('[ProfanityMuter] json3 fetch error:', e.message, '— falling back to XML');
+    }
+
+    // Fallback: legacy segment-level XML.
+    const xmlUrl = track.baseUrl.replace(/[&?]fmt=srv3/g, '');
     const xmlRes = await fetch(xmlUrl);
     console.log('[ProfanityMuter] XML status:', xmlRes.status);
     if (!xmlRes.ok) return { ok: false, error: `XML fetch ${xmlRes.status}`, xml: '' };
 
     const xml = await xmlRes.text();
     console.log('[ProfanityMuter] XML length:', xml.length, 'first 200:', xml.slice(0, 200));
-    const source = track.kind === 'asr' ? 'auto-generated' : 'manual';
     return { ok: true, xml, isJson: false, source };
-}
-
-function getEnglishCaptionTrack() {
-    // Prefer live global over script-tag parse — stays fresh with signed URLs
-    const playerResponse = window.ytInitialPlayerResponse ?? (() => {
-        for (const s of document.querySelectorAll('script')) {
-            const m = s.textContent.match(/ytInitialPlayerResponse\s*=\s*(\{.+?\});/s);
-            if (m) { try { return JSON.parse(m[1]); } catch (_) {} }
-        }
-        return null;
-    })();
-
-    const tracks = playerResponse?.captions?.playerCaptionsTracklistRenderer?.captionTracks;
-    if (!tracks?.length) return { track: null, source: 'none' };
-
-    const isEnglish = (t) => t.languageCode?.toLowerCase().startsWith('en');
-    const asr = tracks.find((t) => t.kind === 'asr' && isEnglish(t));
-    if (asr) return { track: asr, source: 'auto-generated' };
-    const manual = tracks.find((t) => isEnglish(t));
-    if (manual) return { track: manual, source: 'manual' };
-    return { track: null, source: 'none' };
 }
 
 // --- Muter lifecycle ---
@@ -92,14 +99,44 @@ function destroyMuter() {
     }
 }
 
-async function initMuter() {
-    destroyMuter();
+let lastInitVideoId = null;
+// Tracks a videoId with an initMuter() call currently in-flight (awaiting fetch).
+// Needed because `currentMuter` is only assigned at the very end of the async
+// function, well after several `await`s — two calls for the same video fired
+// close together (e.g. yt-navigate-finish landing on top of the initial
+// chrome.storage.local.get callback on a cold load) would otherwise both pass
+// the "already initialized" check below, both fetch concurrently, and leak the
+// first Muter's event listeners when the second overwrites `currentMuter`.
+let initInFlightVideoId = null;
 
+async function initMuter() {
     const videoId = new URLSearchParams(window.location.search).get('v');
     if (!videoId) {
         console.log('[ProfanityMuter] No video ID in URL.');
         return;
     }
+    if (videoId === lastInitVideoId && currentMuter) {
+        // Same video already initialized (e.g. yt-navigate-finish firing on top of
+        // the initial page load) — avoid a redundant caption re-fetch.
+        return;
+    }
+    if (videoId === initInFlightVideoId) {
+        // Another initMuter() call for this same video is already awaiting its
+        // fetch — don't start a second one.
+        return;
+    }
+    initInFlightVideoId = videoId;
+
+    try {
+        lastInitVideoId = videoId;
+        await initMuterInner(videoId);
+    } finally {
+        if (initInFlightVideoId === videoId) initInFlightVideoId = null;
+    }
+}
+
+async function initMuterInner(videoId) {
+    destroyMuter();
 
     const apiKey = (() => {
         try {
@@ -141,9 +178,10 @@ async function initMuter() {
         console.log('[ProfanityMuter] XML parsed but no words found.');
         return;
     }
-
     const bwSet = await loadBadWords();
-    const schedule = window.ProfanityMuter.buildMuteSchedule(words, bwSet);
+    const schedule = window.ProfanityMuter.buildMuteSchedule(words, bwSet, {
+        isAutoGenerated: captionSource === 'auto-generated',
+    });
     muteIntervals = schedule.length;
     console.log(`[ProfanityMuter] ${words.length} words, ${schedule.length} mute intervals (${captionSource}).`);
 
@@ -199,6 +237,17 @@ async function onNavigate() {
     // Wait for YouTube's SPA to update the page state
     await new Promise((r) => setTimeout(r, 800));
     if (myToken !== navToken) return;
+
+    // YouTube fires 'yt-navigate-finish'/'yt-location-change' for more than just
+    // switching videos (e.g. history.replaceState calls for chapters, sidebar
+    // updates, theater-mode toggles). If it's the same video we've already
+    // initialized, this must be a no-op — wiping hasCaption/muteIntervals here
+    // would otherwise permanently desync the popup's status display from the
+    // still-running Muter, since initMuter()'s own dedup guard would then skip
+    // re-fetching and never restore them.
+    const videoId = new URLSearchParams(window.location.search).get('v');
+    if (videoId === lastInitVideoId && currentMuter) return;
+
     hasCaption = false;
     captionSource = 'none';
     muteIntervals = 0;

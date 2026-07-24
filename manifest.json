@@ -28,7 +28,7 @@
   "content_scripts": [
     {
       "matches": [
-        "https://*.youtube.com/watch*"
+        "https://*.youtube.com/*"
       ],
       "js": [
         "lib/captions.js",
@@ -43,8 +43,6 @@
   "web_accessible_resources": [
     {
       "resources": [
-        "*.wasm",
-        "models/*",
         "bad_words.json"
       ],
       "matches": [
